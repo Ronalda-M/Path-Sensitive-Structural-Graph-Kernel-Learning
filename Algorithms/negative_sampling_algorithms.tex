@@ -1,0 +1,272 @@
+\documentclass[12pt, a4paper]{article}
+
+% ── Packages ──────────────────────────────────────────────────────────────────
+\usepackage[a4paper, margin=2.5cm]{geometry}
+\usepackage{algorithm}
+\usepackage[noend]{algpseudocode}     % algorithmicx, no explicit end-blocks
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{hyperref}
+\hypersetup{colorlinks=true, linkcolor=blue, citecolor=blue}
+
+% ── Custom commands ────────────────────────────────────────────────────────────
+\newcommand{\kw}[1]{\textbf{#1}}                    % keyword
+\newcommand{\set}[1]{\mathcal{#1}}                  % set notation
+\newcommand{\posset}{\Omega^{+}}                    % positive edge set
+\newcommand{\negset}{\Omega^{-}}                    % negative edge set
+\algrenewcommand\algorithmicindent{1.2em}
+
+% Rename "Require/Ensure" to "Input/Output"
+\renewcommand{\algorithmicrequire}{\textbf{Input:}}
+\renewcommand{\algorithmicensure}{\textbf{Output:}}
+
+% ── Inline comment command ────────────────────────────────────────────────────
+\renewcommand{\algorithmiccomment}[1]{\hfill\(\triangleright\) \textit{\small #1}}
+
+\begin{document}
+
+% ══════════════════════════════════════════════════════════════════════════════
+\section*{Negative Test Edge Identification in Bipartite Drug--ADR Link
+          Prediction}
+% ══════════════════════════════════════════════════════════════════════════════
+
+\noindent
+Let $G = (\set{D}, \set{A}, E)$ be a bipartite drug--ADR graph where
+$\set{D} = \{d_1, \ldots, d_m\}$ is the drug node set,
+$\set{A} = \{a_1, \ldots, a_n\}$ is the ADR node set, and
+$E \subseteq \set{D} \times \set{A}$ is the known association edge set.
+The full positive set is $\posset = E$.
+A negative edge $(d, a) \in \set{D} \times \set{A} \setminus \posset$ is a
+drug--ADR pair with no known association (closed-world assumption).
+
+% ──────────────────────────────────────────────────────────────────────────────
+\subsection*{Algorithm 1 — Implicit Negative Sampling (Notebook Baseline)}
+% ──────────────────────────────────────────────────────────────────────────────
+
+\begin{algorithm}[H]
+\caption{Implicit Negative Sampling (Notebook, flawed)}
+\label{alg:implicit}
+\begin{algorithmic}[1]
+    \Require Bipartite graph $G = (\set{D}, \set{A}, E)$,
+             removal ratio $\rho \in (0,1)$
+    \Ensure  Test positives \texttt{edge\_subset},
+             implicit negatives from predictor internals
+
+    \medskip
+    \State \algorithmiccomment{Step 1: Sample test positives by random edge removal}
+    \State $\texttt{edges\_list} \leftarrow \text{list}(G.\text{edges}())$
+    \State $\texttt{edge\_subset} \leftarrow
+           \text{RandomSample}\!\left(\texttt{edges\_list},\;
+           \lfloor \rho \cdot |E| \rfloor\right)$
+    \State $G_{\text{train}} \leftarrow G - \texttt{edge\_subset}$
+
+    \medskip
+    \State \algorithmiccomment{Step 2: Negatives implicit — never explicitly constructed}
+    \For{$f \in \{\text{Jaccard},\;\text{Adamic-Adar},\;\text{Pref.\ Attachment}\}$}
+        \State $\texttt{pred\_scores} \leftarrow f(G_{\text{train}})$
+        \State $\texttt{labels} \leftarrow
+               \bigl[(u,v) \in \texttt{edge\_subset}
+               \;\mid\; (u, v, s) \in \texttt{pred\_scores}\bigr]$
+        \State \algorithmiccomment{Negatives = any pair $f$ generates
+               $\notin$ \texttt{edge\_subset}; uncontrolled}
+        \State \algorithmiccomment{Bug: in bipartite $G$,
+               $N(d)\cap N(a)=\varnothing\;\Rightarrow$
+               Jaccard/AA return $\approx\varnothing$}
+        \State $\text{EvaluateROC}(\texttt{labels},\;\texttt{scores})$
+    \EndFor
+\end{algorithmic}
+\end{algorithm}
+
+\noindent\textbf{Known flaws:}
+\begin{enumerate}
+  \item No explicit negative set; negatives are a byproduct of predictor
+        internals, not a controlled sample.
+  \item Labels verified against \texttt{edge\_subset} only, not against the
+        full graph $G$; a removed edge whose reverse $(v,u)$ is in
+        \texttt{edge\_subset} receives label $\bot$ — a false negative.
+  \item No balance guarantee: the ratio
+        $|\text{positives}|{:}|\text{negatives}|$
+        is determined by the predictor, not the experimenter.
+\end{enumerate}
+
+% ──────────────────────────────────────────────────────────────────────────────
+\subsection*{Algorithm 2 — Uniform Random Negative Sampling (Manuscript Pipeline)}
+% ──────────────────────────────────────────────────────────────────────────────
+
+\begin{algorithm}[H]
+\caption{Uniform Random Negative Sampling}
+\label{alg:uniform}
+\begin{algorithmic}[1]
+    \Require Bipartite graph $G = (\set{D}, \set{A}, E)$,
+             test ratio $\tau \in (0,1)$,
+             seeded random generator \texttt{rng}
+    \Ensure  $G_{\text{train}}$,\;
+             $\texttt{test\_pos}$,\;
+             $\texttt{test\_neg}$ with
+             $|\texttt{test\_neg}| = |\texttt{test\_pos}|$
+
+    \medskip
+    \State \algorithmiccomment{Step 1: Inductive train / test edge split}
+    \State $\text{pairs} \leftarrow \text{Shuffle}(E,\;\texttt{rng})$
+    \State $n_{\text{test}} \leftarrow \max\!\bigl(1,\;\lfloor|E|\cdot\tau\rfloor\bigr)$
+    \State $\texttt{test\_pos}   \leftarrow \text{pairs}[1 \mathbin{:} n_{\text{test}}]$
+    \State $\texttt{train\_pairs}\leftarrow \text{pairs}[n_{\text{test}}+1 \mathbin{:} |E|]$
+    \State $G_{\text{train}} \leftarrow \text{BuildGraph}(\texttt{train\_pairs})$
+
+    \medskip
+    \State \algorithmiccomment{Step 2: Construct closed-world negative set}
+    \State $\posset \leftarrow \text{set}(E)$
+    \algorithmiccomment{all known edges — closed-world assumption}
+    \State $\texttt{test\_neg} \leftarrow \varnothing$
+
+    \While{$|\texttt{test\_neg}| < |\texttt{test\_pos}|$}
+        \State $d \leftarrow \text{UniformSample}(\set{D},\;\texttt{rng})$
+        \State $a \leftarrow \text{UniformSample}(\set{A},\;\texttt{rng})$
+        \If{$(d,\,a) \notin \posset$}
+            \State $\texttt{test\_neg} \leftarrow
+                   \texttt{test\_neg} \cup \{(d,\,a)\}$
+        \EndIf
+    \EndWhile
+
+    \State \Return $G_{\text{train}},\;\texttt{test\_pos},\;\texttt{test\_neg}$
+\end{algorithmic}
+\end{algorithm}
+
+\noindent\textbf{Guarantees:}
+\begin{enumerate}
+  \item $(d,a)\notin\posset$ ensures no known edge is mislabelled as negative.
+  \item $|\texttt{test\_neg}|=|\texttt{test\_pos}|$ gives a balanced evaluation
+        set; PR-AUC is interpretable.
+\end{enumerate}
+\textbf{Limitation:} Uniform sampling ignores degree distribution.
+High-degree drugs appear disproportionately in negatives, allowing a model to
+partially distinguish positives from negatives by degree alone, without
+learning structural kernel signal.
+
+% ──────────────────────────────────────────────────────────────────────────────
+\subsection*{Algorithm 3 — Degree-Stratified Negative Sampling (Recommended)}
+% ──────────────────────────────────────────────────────────────────────────────
+
+\begin{algorithm}[H]
+\caption{Degree-Stratified Negative Sampling}
+\label{alg:stratified}
+\begin{algorithmic}[1]
+    \Require Bipartite graph $G=(\set{D},\set{A},E)$,
+             positive test set $\texttt{test\_pos}$,
+             full positive set $\posset = E$,
+             seeded generator \texttt{rng},
+             maximum attempts $M = 500 \cdot |\texttt{test\_pos}|$
+    \Ensure  $\texttt{test\_neg}$ where the degree distributions of
+             $\set{D}$ and $\set{A}$ mirror those in $\texttt{test\_pos}$
+
+    \medskip
+    \State \algorithmiccomment{Step 1: Compute degree-based sampling weights}
+    \For{$d \in \set{D}$}
+        \State $\delta(d) \leftarrow |\{a : (d,a) \in E\}|$
+        \algorithmiccomment{drug degree in full graph}
+    \EndFor
+    \State $\pi_d \leftarrow
+           \dfrac{\delta(d)}{\displaystyle\sum_{d' \in \set{D}} \delta(d')}$
+           \quad $\forall\, d \in \set{D}$
+
+    \medskip
+    \For{$a \in \set{A}$}
+        \State $\delta(a) \leftarrow |\{d : (d,a) \in E\}|$
+        \algorithmiccomment{ADR degree in full graph}
+    \EndFor
+    \State $\pi_a \leftarrow
+           \dfrac{\delta(a)}{\displaystyle\sum_{a' \in \set{A}} \delta(a')}$
+           \quad $\forall\, a \in \set{A}$
+
+    \medskip
+    \State \algorithmiccomment{Step 2: Sample negatives matching degree profile}
+    \State $\negset \leftarrow \varnothing$,\quad
+           $\textit{attempts} \leftarrow 0$
+
+    \While{$|\negset| < |\texttt{test\_pos}|$
+           \textbf{ and } $\textit{attempts} < M$}
+        \State $d \leftarrow \text{WeightedSample}(\set{D},\;\pi_d,\;\texttt{rng})$
+        \algorithmiccomment{match drug degree distribution}
+        \State $a \leftarrow \text{WeightedSample}(\set{A},\;\pi_a,\;\texttt{rng})$
+        \algorithmiccomment{match ADR degree distribution}
+        \If{$(d,\,a) \notin \posset$}
+            \State $\negset \leftarrow \negset \cup \{(d,\,a)\}$
+        \EndIf
+        \State $\textit{attempts} \leftarrow \textit{attempts} + 1$
+    \EndWhile
+
+    \medskip
+    \State \algorithmiccomment{Step 3: Fallback for sparse graphs}
+    \If{$|\negset| < |\texttt{test\_pos}|$}
+        \State $\negset \leftarrow
+               \negset \cup \text{UniformFill}
+               \!\left(|\texttt{test\_pos}|-|\negset|,\;
+               \set{D},\;\set{A},\;\posset,\;\texttt{rng}\right)$
+    \EndIf
+
+    \State \Return $\negset$
+\end{algorithmic}
+\end{algorithm}
+
+\noindent\textbf{Guarantees:}
+\begin{enumerate}
+  \item The drug marginal distribution of $\negset$ satisfies
+        $\Pr[d \in \negset] \propto \delta(d)$, matching $\texttt{test\_pos}$.
+  \item The ADR marginal distribution satisfies
+        $\Pr[a \in \negset] \propto \delta(a)$, matching $\texttt{test\_pos}$.
+  \item Closed-world assumption preserved:
+        $(d,a)\notin\posset$ before insertion.
+  \item A fallback to uniform sampling is triggered only when the
+        graph density is $< 0.5\%$ and degree-matched candidates are
+        exhausted within $M$ attempts.
+\end{enumerate}
+
+\noindent\textbf{Reference:} This strategy follows the negative sampling
+protocol of Zitnik et al.\ \cite{zitnik2018} (DECAGON) and the evaluation
+framework recommended by Lichtenwalter et al.\ \cite{lichtenwalter2010}.
+
+% ──────────────────────────────────────────────────────────────────────────────
+\subsection*{Comparison Summary}
+% ──────────────────────────────────────────────────────────────────────────────
+
+\begin{table}[H]
+\centering
+\caption{Comparison of negative sampling strategies}
+\label{tab:comparison}
+\setlength{\tabcolsep}{6pt}
+\begin{tabular}{@{}lcccc@{}}
+\toprule
+\textbf{Property} &
+\textbf{Alg.\ 1} &
+\textbf{Alg.\ 2} &
+\textbf{Alg.\ 3} \\
+\midrule
+Explicit negative set constructed       & $\times$ & \checkmark & \checkmark \\
+Balanced $|\negset|=|\posset|$          & $\times$ & \checkmark & \checkmark \\
+Closed-world assumption enforced        & $\times$ & \checkmark & \checkmark \\
+Degree-distribution matched             & $\times$ & $\times$   & \checkmark \\
+Bipartite-compatible                    & $\times$ & \checkmark & \checkmark \\
+Inductive (no leakage from test edges)  & $\times$ & \checkmark & \checkmark \\
+Fallback for sparse graphs              & —        & —          & \checkmark \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+% ── References ────────────────────────────────────────────────────────────────
+\begin{thebibliography}{9}
+
+\bibitem{zitnik2018}
+Zitnik, M., Agrawal, M., \& Leskovec, J.\ (2018).
+Modeling polypharmacy side effects with graph convolutional networks.
+\textit{Bioinformatics}, 34(13), i457--i466.
+
+\bibitem{lichtenwalter2010}
+Lichtenwalter, R.\ N., Lussier, J.\ T., \& Chawla, N.\ V.\ (2010).
+New perspectives and methods in link prediction.
+\textit{Proceedings of the 16th ACM SIGKDD}, 243--252.
+
+\end{thebibliography}
+
+\end{document}

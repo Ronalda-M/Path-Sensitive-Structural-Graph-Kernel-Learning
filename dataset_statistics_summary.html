@@ -1,0 +1,187 @@
+
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: var(--font-sans, sans-serif); }
+.wrap { padding: 1rem 0; }
+.section-label { font-size: 11px; font-weight: 500; color: var(--color-text-secondary); letter-spacing: .06em; text-transform: uppercase; margin-bottom: 8px; }
+.metrics-grid { display: grid; grid-template-columns: repeat(6, minmax(0,1fr)); gap: 8px; margin-bottom: 20px; }
+.mcard { background: var(--color-background-secondary); border-radius: 8px; padding: 10px 12px; }
+.mcard .mlabel { font-size: 11px; color: var(--color-text-secondary); margin-bottom: 4px; }
+.mcard .mval { font-size: 18px; font-weight: 500; color: var(--color-text-primary); }
+.mcard .msub { font-size: 11px; color: var(--color-text-tertiary); margin-top: 2px; }
+
+.tbl-wrap { overflow-x: auto; margin-bottom: 20px; }
+table { width: 100%; border-collapse: collapse; font-size: 12px; }
+thead tr { border-bottom: 0.5px solid var(--color-border-secondary); }
+th { padding: 7px 10px; text-align: left; font-weight: 500; color: var(--color-text-secondary); font-size: 11px; white-space: nowrap; }
+th:not(:first-child) { text-align: right; }
+td { padding: 7px 10px; color: var(--color-text-primary); border-bottom: 0.5px solid var(--color-border-tertiary); white-space: nowrap; }
+td:not(:first-child) { text-align: right; font-variant-numeric: tabular-nums; }
+tr:last-child td { border-bottom: none; }
+.ds-dot { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 6px; vertical-align: middle; }
+.badge { display: inline-block; font-size: 10px; padding: 1px 6px; border-radius: 4px; font-weight: 500; }
+.badge-poly { background: var(--color-background-success); color: var(--color-text-success); }
+.badge-mono { background: var(--color-background-info); color: var(--color-text-info); }
+.highlight { background: var(--color-background-secondary); }
+.chart-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 8px; }
+.chart-box { }
+.chart-title { font-size: 11px; color: var(--color-text-secondary); font-weight: 500; margin-bottom: 6px; }
+.legend { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; font-size: 11px; color: var(--color-text-secondary); }
+.legend span { display: flex; align-items: center; gap: 4px; }
+.legend b { display: inline-block; width: 10px; height: 10px; border-radius: 2px; }
+</style>
+
+<div class="wrap">
+  <div class="section-label">Dataset overview</div>
+
+  <div class="metrics-grid">
+    <div class="mcard"><div class="mlabel">Total datasets</div><div class="mval">5</div><div class="msub">+ 1 merged</div></div>
+    <div class="mcard"><div class="mlabel">Largest (edges)</div><div class="mval">264K</div><div class="msub">TWOSIDES</div></div>
+    <div class="mcard"><div class="mlabel">Max drugs</div><div class="mval">12.5K</div><div class="msub">DS1+DS2+DS3</div></div>
+    <div class="mcard"><div class="mlabel">Max ADRs</div><div class="mval">11.3K</div><div class="msub">DS1+DS2+DS3</div></div>
+    <div class="mcard"><div class="mlabel">Poly triples</div><div class="mval">304K</div><div class="msub">total across all</div></div>
+    <div class="mcard"><div class="mlabel">Densest graph</div><div class="mval">5.73%</div><div class="msub">TWOSIDES</div></div>
+  </div>
+
+  <div class="section-label">Per-dataset statistics</div>
+  <div class="tbl-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Dataset</th>
+          <th>Type</th>
+          <th># Drugs</th>
+          <th># ADRs</th>
+          <th># Edges</th>
+          <th>Density</th>
+          <th>Avg drug deg.</th>
+          <th>Max drug deg.</th>
+          <th>Avg ADR deg.</th>
+          <th>Max ADR deg.</th>
+          <th># Poly triples</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><span class="ds-dot" style="background:#378ADD"></span>DS1 Drug-ADR Relation</td>
+          <td><span class="badge badge-mono">Single-drug</span></td>
+          <td>1,049</td><td>2,983</td><td>5,730</td><td>0.0018</td>
+          <td>4.9</td><td>122</td><td>1.7</td><td>49</td><td>8,205</td>
+        </tr>
+        <tr>
+          <td><span class="ds-dot" style="background:#1D9E75"></span>DS2 SIDER 4.1</td>
+          <td><span class="badge badge-mono">Single-drug</span></td>
+          <td>1,344</td><td>6,123</td><td>158,095</td><td>0.0192</td>
+          <td>117.6</td><td>841</td><td>25.8</td><td>1,140</td><td>30,000</td>
+        </tr>
+        <tr>
+          <td><span class="ds-dot" style="background:#7F77DD"></span>DS3 Neonatal FAERS</td>
+          <td><span class="badge badge-poly">Multi-drug</span></td>
+          <td>10,881</td><td>4,935</td><td>111,131</td><td>0.0021</td>
+          <td>10.2</td><td>1,084</td><td>22.5</td><td>5,623</td><td>30,000</td>
+        </tr>
+        <tr>
+          <td><span class="ds-dot" style="background:#BA7517"></span>DS4 WebMD</td>
+          <td><span class="badge badge-mono">Single-drug</span></td>
+          <td>5,481</td><td>1,559</td><td>26,971</td><td>0.0032</td>
+          <td>4.9</td><td>15</td><td>17.3</td><td>2,097</td><td>30,000</td>
+        </tr>
+        <tr>
+          <td><span class="ds-dot" style="background:#D85A30"></span>TWOSIDES</td>
+          <td><span class="badge badge-poly">Multi-drug</span></td>
+          <td>833</td><td>5,538</td><td>264,337</td><td>0.0573</td>
+          <td>317.3</td><td>2,880</td><td>47.7</td><td>653</td><td>184,429</td>
+        </tr>
+        <tr class="highlight">
+          <td><span class="ds-dot" style="background:#888780"></span>DS1+DS2+DS3 (merged)</td>
+          <td><span class="badge badge-poly">Mixed</span></td>
+          <td>12,461</td><td>11,277</td><td>272,455</td><td>0.0019</td>
+          <td>21.9</td><td>1,084</td><td>24.2</td><td>5,623</td><td>55,968</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="chart-grid">
+    <div class="chart-box">
+      <div class="chart-title">Drugs vs ADRs per dataset</div>
+      <div style="position:relative;height:200px"><canvas id="c1"></canvas></div>
+    </div>
+    <div class="chart-box">
+      <div class="chart-title">Graph edges &amp; polypharmacy triples</div>
+      <div style="position:relative;height:200px"><canvas id="c2"></canvas></div>
+    </div>
+    <div class="chart-box">
+      <div class="chart-title">Average drug degree</div>
+      <div style="position:relative;height:180px"><canvas id="c3"></canvas></div>
+    </div>
+    <div class="chart-box">
+      <div class="chart-title">Graph density (%)</div>
+      <div style="position:relative;height:180px"><canvas id="c4"></canvas></div>
+    </div>
+  </div>
+
+  <div class="legend">
+    <span><b style="background:#378ADD"></b>DS1 Drug-ADR</span>
+    <span><b style="background:#1D9E75"></b>DS2 SIDER</span>
+    <span><b style="background:#7F77DD"></b>DS3 Neonatal</span>
+    <span><b style="background:#BA7517"></b>DS4 WebMD</span>
+    <span><b style="background:#D85A30"></b>TWOSIDES</span>
+    <span><b style="background:#888780"></b>Merged</span>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script>
+const labels = ['DS1','DS2 SIDER','DS3 Neonatal','DS4 WebMD','TWOSIDES','Merged'];
+const colors = ['#378ADD','#1D9E75','#7F77DD','#BA7517','#D85A30','#888780'];
+const opts = (extra={}) => ({
+  responsive:true, maintainAspectRatio:false,
+  plugins:{ legend:{display:false}, tooltip:{callbacks:{label:c=>` ${c.dataset.label}: ${Number(c.raw).toLocaleString()}`}} },
+  scales:{ x:{grid:{display:false}, ticks:{font:{size:10},color:'#888'}}, y:{grid:{color:'rgba(128,128,128,.1)'}, ticks:{font:{size:10},color:'#888', callback:v=>v>=1000?Math.round(v/1000)+'K':v}} },
+  ...extra
+});
+
+new Chart(document.getElementById('c1'), {
+  type:'bar',
+  data:{
+    labels,
+    datasets:[
+      {label:'Drugs', data:[1049,1344,10881,5481,833,12461], backgroundColor:colors.map(c=>c+'cc'), borderWidth:0},
+      {label:'ADRs',  data:[2983,6123,4935,1559,5538,11277], backgroundColor:colors.map(c=>c+'55'), borderWidth:0}
+    ]
+  },
+  options:{...opts(), plugins:{...opts().plugins, tooltip:{callbacks:{label:c=>` ${c.dataset.label}: ${Number(c.raw).toLocaleString()}`}}}}
+});
+
+new Chart(document.getElementById('c2'), {
+  type:'bar',
+  data:{
+    labels,
+    datasets:[
+      {label:'Edges',        data:[5730,158095,111131,26971,264337,272455], backgroundColor:colors.map(c=>c+'cc'), borderWidth:0},
+      {label:'Poly triples', data:[8205,30000,30000,30000,184429,55968],    backgroundColor:colors.map(c=>c+'55'), borderWidth:0}
+    ]
+  },
+  options:opts()
+});
+
+new Chart(document.getElementById('c3'), {
+  type:'bar',
+  data:{
+    labels,
+    datasets:[{label:'Avg drug degree', data:[4.9,117.6,10.2,4.9,317.3,21.9], backgroundColor:colors, borderWidth:0}]
+  },
+  options:{...opts(), scales:{...opts().scales, y:{...opts().scales.y, ticks:{...opts().scales.y.ticks, callback:v=>v}}}}
+});
+
+new Chart(document.getElementById('c4'), {
+  type:'bar',
+  data:{
+    labels,
+    datasets:[{label:'Density %', data:[0.18,1.92,0.21,0.32,5.73,0.19], backgroundColor:colors, borderWidth:0}]
+  },
+  options:{...opts(), scales:{...opts().scales, y:{...opts().scales.y, ticks:{...opts().scales.y.ticks, callback:v=>v+'%'}}},
+    plugins:{...opts().plugins, tooltip:{callbacks:{label:c=>` ${c.dataset.label}: ${c.raw}%`}}}}
+});
+</script>
